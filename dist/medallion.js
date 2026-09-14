@@ -138,15 +138,17 @@ export function createMedallion(analysis, options = {}) {
     const cy = (bounds.minY + bounds.maxY) / 2;
     const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
     const scale = size / span;
-    const spanX = Math.max(1, bounds.maxX - bounds.minX);
-    const spanY = Math.max(1, bounds.maxY - bounds.minY);
     for (let i = 0; i < position.count; i++) {
         const wx = position.getX(i) - offsetX;
         const wy = position.getY(i) - offsetY;
         const px = wx / scale + cx;
         const py = -wy / scale + cy;
-        uv[i * 2] = (px - bounds.minX) / spanX;
-        uv[i * 2 + 1] = (py - bounds.minY) / spanY;
+        // Sample the artwork by canvas pixel. The polygon spans the art's bounding
+        // box, but the texture is the full canvas: mapping the box to [0,1] shrunk
+        // the artwork inside the silhouette (to ~66% width on tall pins!) and let
+        // the gold body show through the transparent margins as a huge border.
+        uv[i * 2] = px / width;
+        uv[i * 2 + 1] = py / imgH;
     }
     faceGeometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
     const map = colorTexture(face, width, imgH);
