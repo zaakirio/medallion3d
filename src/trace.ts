@@ -75,26 +75,6 @@ export function simplify(points: Point[], epsilon = 1.4): Point[] {
 }
 
 /**
- * Chaikin corner-cutting on a closed loop. Turns the traced pixel staircase into
- * a flowing outline, so the coin's curves read as curves rather than facets.
- */
-export function smoothClosed(points: Point[], iterations = 2): Point[] {
-  if (points.length < 3) return points;
-  let current = points;
-  for (let pass = 0; pass < iterations; pass++) {
-    const next: Point[] = [];
-    for (let i = 0; i < current.length; i++) {
-      const a = current[i];
-      const b = current[(i + 1) % current.length];
-      next.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
-      next.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
-    }
-    current = next;
-  }
-  return current;
-}
-
-/**
  * Map a pixel-space contour into centred world coordinates.
  * `size` is the target width/height of the longest edge.
  */

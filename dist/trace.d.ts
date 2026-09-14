@@ -14,11 +14,6 @@ export declare function traceContour(mask: Uint8Array, width: number, height: nu
 /** Douglas–Peucker polyline simplification. */
 export declare function simplify(points: Point[], epsilon?: number): Point[];
 /**
- * Chaikin corner-cutting on a closed loop. Turns the traced pixel staircase into
- * a flowing outline, so the coin's curves read as curves rather than facets.
- */
-export declare function smoothClosed(points: Point[], iterations?: number): Point[];
-/**
  * Map a pixel-space contour into centred world coordinates.
  * `size` is the target width/height of the longest edge.
  */

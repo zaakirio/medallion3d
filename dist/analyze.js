@@ -171,8 +171,7 @@ export function analyzePin({ data, width, height }) {
     const mask = solidify(raw, width, height);
     // Bleed the artwork outward into any silhouette pixel the classifier called
     // background (the pin's own edge pixels blend into the page). Without this the
-    // face is clipped at the outline and the extruded gold body shows through as a
-    // fat border that the flat artwork does not have.
+    // transparent background's pale RGB is painted as a white rim.
     const bleeded = new Uint8ClampedArray(face);
     {
         const filled = new Uint8Array(n);
@@ -202,7 +201,6 @@ export function analyzePin({ data, width, height }) {
                 queue.push(j);
             }
         }
-        // Everything inside the silhouette is opaque now.
         for (let i = 0; i < n; i++)
             if (mask[i])
                 bleeded[i * 4 + 3] = 255;

@@ -11,6 +11,6 @@ export type { Medallion, MedallionOptions } from "./medallion.js";
 export { createViewer } from "./viewer.js";
 export type { Viewer, ViewerOptions } from "./viewer.js";
 export { createStudioEnvironment } from "./environment.js";
-export { traceContour, simplify, smoothClosed, contourToPoints } from "./trace.js";
+export { traceContour, simplify, contourToPoints } from "./trace.js";
 export type { Point } from "./trace.js";
 //# sourceMappingURL=index.d.ts.map
