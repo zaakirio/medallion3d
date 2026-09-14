@@ -50,6 +50,5 @@ put("c3", new Uint8ClampedArray(Array.from({ length: width * height * 4 }, (_, i
 
 const info = document.getElementById("info");
 const b = analysis.bounds;
-info.textContent = `canvas ${width}x${height} · bounds x:${b.minX}-${b.maxX} y:${b.minY}-${b.maxY} · gold ${(analysis.goldRatio * 100) | 0}% · polygon pts ${pts2count}`;
-function pts2count() { return 0; }
+info.textContent = `canvas ${width}x${height} · bounds x:${b.minX}-${b.maxX} y:${b.minY}-${b.maxY} · gold ${(analysis.goldRatio * 100) | 0}% · polygon pts ${pts.length}`;
 window.__ready = true;

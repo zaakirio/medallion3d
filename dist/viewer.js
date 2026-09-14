@@ -34,7 +34,7 @@ export function createViewer(container, analysis, options = {}) {
     // live medal visibly smaller inside the same frame, with dead margin that
     // read as a wrong, oversized border.
     const frameMedal = () => {
-        const radius = 1.02; // half the longest edge (2) plus bevel/wall slack
+        const radius = (medallionOptions.size ?? 2) * 0.51; // half the longest edge plus bevel/wall slack
         const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
         const distanceY = radius / Math.tan(halfFov);
         const distanceX = distanceY / Math.max(camera.aspect, 1e-6);
@@ -114,6 +114,7 @@ export function createViewer(container, analysis, options = {}) {
             medallion.dispose();
             medallion = createMedallion(next, { ...medallionOptions, envMap: environment });
             object.add(medallion.group);
+            frameMedal();
         },
         reset() {
             object.rotation.set(restPitch, restYaw, 0);
