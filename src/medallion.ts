@@ -40,7 +40,7 @@ function colorTexture(face: Uint8ClampedArray, w: number, h: number): THREE.Data
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = true;
-  texture.anisotropy = 4;
+  texture.anisotropy = 8;
   texture.needsUpdate = true;
   return texture;
 }
@@ -101,10 +101,10 @@ function circleShape(size: number): THREE.Shape {
 export function createMedallion(analysis: PinAnalysis, options: MedallionOptions = {}): Medallion {
   const {
     size = 2,
-    thickness = 0.16,
-    bevel = 0.03,
+    thickness = 0.12,
+    bevel = 0.02,
     goldColor = 0xe9c46a,
-    relief = 2.6,
+    relief = 2.0,
     envMap = null,
     silhouette = true,
   } = options;
@@ -117,7 +117,10 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   if (silhouette) {
     const contour = traceContour(mask, width, imgH);
     const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
-    const epsilon = Math.max(0.35, span / 2400);
+    // ~1px: tight enough that the polygon hides under the artwork's own gold
+    // border, loose enough to collapse the pixel staircase — an exactly-traced
+    // outline corrugates the extrusion wall into visible micro-facets.
+    const epsilon = Math.max(1.0, span / 300);
     const points = contourToPoints(simplify(contour, epsilon), bounds, size);
     traced = points.length;
     shape = points.length >= 3
@@ -128,11 +131,18 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   }
 
   // --- body ---
+  // The rim is a real bevel: it catches the studio light the way a struck coin
+  // does and keeps the extrusion readable from every angle. The bevel expands
+  // the silhouette outward by `bevel`, so the body is inset by exactly that
+  // amount first — the bevel crest then lands on the face outline instead of
+  // ringing it, and the wall tracks the artwork edge all the way around
+  // (sides, top and bottom alike).
   const bodyGeometry = new THREE.ExtrudeGeometry(shape, {
     depth: thickness,
-    // No bevel: a bevel offsets the silhouette OUTWARD, so the gold body paints a
-    // ring around the artwork that the flat pin does not have.
-    bevelEnabled: false,
+    bevelEnabled: true,
+    bevelThickness: bevel * 1.4,
+    bevelSize: bevel,
+    bevelSegments: 3,
     curveSegments: 8,
     steps: 1,
   });
@@ -141,9 +151,11 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   const offsetX = -(box.min.x + box.max.x) / 2;
   const offsetY = -(box.min.y + box.max.y) / 2;
   bodyGeometry.translate(offsetX, offsetY, -(box.min.z + box.max.z) / 2);
-  // Pull the body inside the artwork: the traced outline is an approximation,
-  // so an exactly-matching body still peeks around the face as a gold rim.
-  bodyGeometry.scale(0.82, 0.82, 1);
+  // Inset enough that bevel + trace slack never poke past the face: scale by
+  // (1 - 2·bevel/size) about the centre, i.e. bevelSize at the widest point and
+  // proportionally less elsewhere. The face's own painted gold outline is wider
+  // than that, so the sliver hides behind it even face-on.
+  bodyGeometry.scale(1 - (2 * bevel) / size, 1 - (2 * bevel) / size, 1);
   const halfDepth = (box.max.z - box.min.z) / 2;
 
   const bodyMaterial = new THREE.MeshPhysicalMaterial({
@@ -187,10 +199,25 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   const normalMap = normalTexture(heightMap, width, imgH, relief);
   const orm = ormTexture(roughness, metalness, width, imgH);
 
-  // The artwork is finished 2D colour. Lighting it washes the enamel out and
-  // clips highlights to white, so the face is drawn unlit and simply discards the
-  // transparent background. The gold body behind supplies the metal.
-  const faceMaterial = new THREE.MeshBasicMaterial({ map, alphaTest: 0.5, toneMapped: false });
+  // The face is lit like the real object: the classifier's maps make the gold
+  // outline metal (it sweeps studio reflections as the medal turns) and the
+  // enamel a clear-coated dielectric, while the derived normal map embosses the
+  // artwork. Tone mapping keeps the highlights from clipping to white, which is
+  // what washed the artwork out in earlier attempts.
+  const faceMaterial = new THREE.MeshPhysicalMaterial({
+    map,
+    normalMap,
+    normalScale: new THREE.Vector2(0.9, 0.9),
+    roughnessMap: orm,
+    metalnessMap: orm,
+    metalness: 1,
+    roughness: 1,
+    envMap,
+    envMapIntensity: 0.5,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.4,
+    alphaTest: 0.5,
+  });
 
   const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial);
   faceMesh.position.z = 0.0005;

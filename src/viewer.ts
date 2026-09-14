@@ -46,7 +46,7 @@ export function createViewer(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(width, height, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.06;
+  renderer.toneMappingExposure = 1.12;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   Object.assign(renderer.domElement.style, {
     width: "100%", height: "100%", display: "block", touchAction: "none", cursor: "grab",
@@ -55,8 +55,20 @@ export function createViewer(
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(28, width / height, 0.1, 100);
-  camera.position.set(0, 0, 5.4);
-  camera.lookAt(0, 0, 0);
+
+  // Frame the medal so it fills the stage the way the flat artwork does — the
+  // flat asset fills ~88% of its canvas, so a fixed camera distance left the
+  // live medal visibly smaller inside the same frame, with dead margin that
+  // read as a wrong, oversized border.
+  const frameMedal = () => {
+    const radius = 1.02; // half the longest edge (2) plus bevel/wall slack
+    const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+    const distanceY = radius / Math.tan(halfFov);
+    const distanceX = distanceY / Math.max(camera.aspect, 1e-6);
+    camera.position.set(0, 0, Math.max(distanceY, distanceX) / 0.95);
+    camera.lookAt(0, 0, 0);
+  };
+  frameMedal();
 
   const environment = createStudioEnvironment(renderer);
   scene.environment = environment;
@@ -64,7 +76,9 @@ export function createViewer(
   const keyLight = new THREE.DirectionalLight(0xfff3dd, 0.5);
   keyLight.position.set(2.4, 3.2, 4);
   scene.add(keyLight);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+  // Ambient carries the artwork's own colours head-on (diffuse ≈ 1 at normal
+  // incidence), so the map reads true while the env panels supply the sheen.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.68));
 
   const object = new THREE.Group();
   scene.add(object);
@@ -116,6 +130,7 @@ export function createViewer(
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    frameMedal();
   });
   observer.observe(container);
 

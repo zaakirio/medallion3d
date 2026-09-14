@@ -205,6 +205,31 @@ export function analyzePin({ data, width, height }) {
             if (mask[i])
                 bleeded[i * 4 + 3] = 255;
     }
+    // Border ring: the pin's own metal outline — the outermost `ringWidth` pixels
+    // of the silhouette. Classifying painted gold detail inside the artwork as
+    // metal too tinted the whole face toward mirror-gold and washed the artwork
+    // out under lighting, so metalness now lives only in the real metal border;
+    // interior gold decoration stays colour-true under a clearcoat.
+    const ringWidth = Math.max(3, Math.round(Math.max(width, height) / 70));
+    const ring = new Uint8Array(n);
+    {
+        const eroded = Uint8Array.from(mask);
+        for (let pass = 0; pass < ringWidth; pass++) {
+            const previous = eroded.slice();
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = y * width + x;
+                    if (!previous[i])
+                        continue;
+                    if (x === 0 || y === 0 || x === width - 1 || y === height - 1 ||
+                        !previous[i - 1] || !previous[i + 1] || !previous[i - width] || !previous[i + width])
+                        eroded[i] = 0;
+                }
+            }
+        }
+        for (let i = 0; i < n; i++)
+            ring[i] = mask[i] && !eroded[i] ? 255 : 0;
+    }
     // Height: gold ridges sit proud, enamel is a shallow inlay, everything else flat.
     const heightField = new Uint8Array(n);
     const metalness = new Uint8Array(n);
@@ -215,9 +240,11 @@ export function analyzePin({ data, width, height }) {
             roughness[i] = 200;
             continue;
         }
-        if (isGold[i]) {
+        if (isGold[i] || ring[i]) {
             heightField[i] = 235;
-            metalness[i] = 255;
+            // The border is full metal; interior gold detail keeps half metalness so
+            // it reads as painted relief without tinting the artwork to gold.
+            metalness[i] = ring[i] ? 255 : 128;
             roughness[i] = 55;
         }
         else {
@@ -225,6 +252,30 @@ export function analyzePin({ data, width, height }) {
             metalness[i] = 0;
             roughness[i] = 205;
         }
+    }
+    // Extend the heights outward past the silhouette before smoothing. Without
+    // this the Sobel sees a 235→0 cliff at the boundary and yields wild normals
+    // there — rendered as metal, that read as chunky striped borders all around
+    // the edge. Copying the nearest interior height makes the rim flat, so the
+    // outer gold band shades like the smooth painted border it is.
+    {
+        const extended = Uint8Array.from(heightField);
+        for (let pass = 0; pass < 4; pass++) {
+            const previous = extended.slice();
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = y * width + x;
+                    if (previous[i] !== 0)
+                        continue;
+                    const west = x > 0 ? previous[i - 1] : 0;
+                    const east = x < width - 1 ? previous[i + 1] : 0;
+                    const north = y > 0 ? previous[i - width] : 0;
+                    const south = y < height - 1 ? previous[i + width] : 0;
+                    extended[i] = west || east || north || south;
+                }
+            }
+        }
+        heightField.set(extended);
     }
     const smoothHeight = boxBlur(boxBlur(heightField, width, height, 2), width, height, 1);
     const smoothMetal = boxBlur(metalness, width, height, 1);

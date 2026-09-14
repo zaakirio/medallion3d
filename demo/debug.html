@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>medallion3d — debug harness</title>
+<style>
+  /* Mirror the app drawer: 340px square, warm paper background. */
+  html, body { margin: 0; height: 100%; background: #e9e7e0; }
+  body { display: grid; place-items: center; }
+  .frame {
+    position: relative; width: 340px; height: 340px;
+    border-radius: 18px; background: #f8f8f5; overflow: hidden; touch-action: none;
+  }
+  #stage { position: absolute; inset: 0; touch-action: none; }
+  .note { position: fixed; inset: 10px 0 auto; text-align: center; color: #6b7688; font: 12px ui-monospace, monospace; z-index: 5; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "../node_modules/three/build/three.module.js",
+    "three/addons/": "../node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <p class="note" id="note">loading…</p>
+  <div class="frame"><div id="stage"></div></div>
+  <script type="module" src="./debug.js"></script>
+</body>
+</html>
