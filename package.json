@@ -1,0 +1,19 @@
+{
+  "name": "medallion3d",
+  "version": "0.1.0",
+  "description": "Turn flat 2D pin art into a physically-lit 3D gold medallion. Runtime geometry, no 3D assets.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "demo": "vite --config demo/vite.config.ts",
+    "demo:build": "vite build --config demo/vite.config.ts"
+  },
+  "peerDependencies": { "three": ">=0.160.0" },
+  "devDependencies": { "three": "^0.180.0", "@types/three": "^0.180.0", "typescript": "~5.6.0", "vite": "^6.0.0" },
+  "keywords": ["three", "3d", "medallion", "badge", "achievement", "enamel-pin", "gold", "coin"]
+}

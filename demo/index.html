@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>medallion3d — demo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: radial-gradient(circle at 50% 35%, #1b2230, #0b0e13 70%); }
+  #stage { width: 100vw; height: 100vh; }
+  .hud {
+    position: fixed; inset: auto 0 22px; display: flex; gap: 8px; justify-content: center;
+    font: 13px -apple-system, system-ui, sans-serif;
+  }
+  .hud button, .hud a {
+    appearance: none; border: 1px solid #2c3546; background: #161c26; color: #cdd6e4;
+    padding: 7px 13px; border-radius: 999px; text-decoration: none; cursor: pointer;
+  }
+  .hud button[aria-pressed="true"] { border-color: #e9c46a; color: #e9c46a; }
+  .note { position: fixed; inset: 18px 0 auto; text-align: center; color: #6b7688; font: 12px ui-monospace, monospace; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "../node_modules/three/build/three.module.js",
+    "three/addons/": "../node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="stage"></div>
+  <p class="note" id="note">drag to spin · tap to flip</p>
+  <div class="hud" id="hud"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
