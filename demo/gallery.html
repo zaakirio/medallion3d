@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LingoBite medals — 3D gallery</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #e9e7e0;
+    font: 15px/1.45 ui-rounded, -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: #2c2c26; display: flex; flex-direction: column; align-items: center;
+  }
+  header { text-align: center; padding: 26px 16px 4px; }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: #7a776c; font-size: 13.5px; }
+  .stage-wrap { padding: 18px 12px 6px; }
+  .frame {
+    position: relative; width: min(78vw, 460px); height: min(78vw, 460px);
+    border-radius: 24px; background: #f8f8f5; overflow: hidden; touch-action: none;
+    box-shadow: 0 10px 30px rgba(60, 55, 40, 0.14);
+  }
+  #stage { position: absolute; inset: 0; touch-action: none; }
+  #stage canvas { display: block; cursor: grab; }
+  #stage canvas:active { cursor: grabbing; }
+  .hint { text-align: center; color: #8b887b; font-size: 12.5px; padding: 8px 0 2px; }
+  .name { text-align: center; font-weight: 650; font-size: 16px; min-height: 22px; margin: 2px 0 14px; }
+  .pins {
+    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    max-width: 920px; padding: 0 14px 30px;
+  }
+  .pins button {
+    appearance: none; border: 2px solid transparent; border-radius: 14px;
+    background: #f4f2ec; padding: 0; cursor: pointer; width: 84px; padding-bottom: 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .pins button:hover { transform: translateY(-2px); }
+  .pins button[aria-pressed="true"] { border-color: #c9a227; background: #fff; }
+  .pins img { width: 76px; height: 76px; object-fit: contain; }
+  .pins small { font-size: 10.5px; color: #6d6a5f; text-align: center; line-height: 1.2; padding: 0 2px 2px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "../node_modules/three/build/three.module.js",
+    "three/addons/": "../node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <header>
+    <h1>LingoBite medals — live 3D</h1>
+    <p>Drag a medal to turn it · pick another below</p>
+  </header>
+  <div class="stage-wrap">
+    <div class="frame"><div id="stage"></div></div>
+    <p class="hint" id="hint">drag to rotate</p>
+    <p class="name" id="name"></p>
+  </div>
+  <nav class="pins" id="pins" aria-label="Pins"></nav>
+  <script type="module" src="./gallery.js"></script>
+</body>
+</html>
