@@ -169,6 +169,39 @@ export function analyzePin({ data, width, height }: PixelInput): PinAnalysis {
 
   const mask = solidify(raw, width, height);
 
+  // Bleed the artwork outward into any silhouette pixel the classifier called
+  // background (the pin's own edge pixels blend into the page). Without this the
+  // face is clipped at the outline and the extruded gold body shows through as a
+  // fat border that the flat artwork does not have.
+  const bleeded = new Uint8ClampedArray(face);
+  {
+    const filled = new Uint8Array(n);
+    const queue: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (mask[i] && bleeded[i * 4 + 3] >= 16) { filled[i] = 1; queue.push(i); }
+    }
+    for (let head = 0; head < queue.length; head++) {
+      const i = queue[head];
+      const x = i % width, y = (i / width) | 0;
+      const neighbours = [
+        x > 0 ? i - 1 : -1,
+        x < width - 1 ? i + 1 : -1,
+        y > 0 ? i - width : -1,
+        y < height - 1 ? i + width : -1,
+      ];
+      for (const j of neighbours) {
+        if (j < 0 || !mask[j] || filled[j]) continue;
+        bleeded[j * 4] = bleeded[i * 4];
+        bleeded[j * 4 + 1] = bleeded[i * 4 + 1];
+        bleeded[j * 4 + 2] = bleeded[i * 4 + 2];
+        filled[j] = 1;
+        queue.push(j);
+      }
+    }
+    // Everything inside the silhouette is opaque now.
+    for (let i = 0; i < n; i++) if (mask[i]) bleeded[i * 4 + 3] = 255;
+  }
+
   // Height: gold ridges sit proud, enamel is a shallow inlay, everything else flat.
   const heightField = new Uint8Array(n);
   const metalness = new Uint8Array(n);
@@ -200,7 +233,7 @@ export function analyzePin({ data, width, height }: PixelInput): PinAnalysis {
     heightMap: smoothHeight,
     metalness: smoothMetal,
     roughness,
-    face,
+    face: bleeded,
     goldRatio: fgCount ? goldCount / fgCount : 0,
     bounds: { minX, minY, maxX, maxY },
   };

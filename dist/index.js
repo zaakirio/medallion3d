@@ -29,5 +29,5 @@ export { analyzePin } from "./analyze.js";
 export { createMedallion, summarise } from "./medallion.js";
 export { createViewer } from "./viewer.js";
 export { createStudioEnvironment } from "./environment.js";
-export { traceContour, simplify, contourToPoints } from "./trace.js";
+export { traceContour, simplify, smoothClosed, contourToPoints } from "./trace.js";
 //# sourceMappingURL=index.js.map

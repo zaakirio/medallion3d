@@ -44,6 +44,27 @@ function colorTexture(face: Uint8ClampedArray, w: number, h: number): THREE.Data
   return texture;
 }
 
+/**
+ * Alpha mask for the metal overlay: white where the artwork is gold, black
+ * elsewhere. Three reads the green channel for `alphaMap`.
+ */
+function metalMaskTexture(metalness: Uint8Array, w: number, h: number): THREE.DataTexture {
+  const data = new Uint8Array(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    data[i * 4] = metalness[i];
+    data[i * 4 + 1] = metalness[i];
+    data[i * 4 + 2] = metalness[i];
+    data[i * 4 + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /** Circle fallback so a failed trace still produces something solid. */
 function circleShape(size: number): THREE.Shape {
   const r = size / 2;
@@ -55,8 +76,8 @@ function circleShape(size: number): THREE.Shape {
 export function createMedallion(analysis: PinAnalysis, options: MedallionOptions = {}): Medallion {
   const {
     size = 2,
-    thickness = 0.16,
-    bevel = 0.03,
+    thickness = 0.13,
+    bevel = 0.018,
     goldColor = 0xe9c46a,
     envMap = null,
     silhouette = true,
@@ -72,8 +93,8 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
     // Fine simplification kills the pixel staircase, then Chaikin rounds the
     // corners so curves read as curves instead of facets.
-    const epsilon = Math.max(0.7, span / 650);
-    const points = contourToPoints(smoothClosed(simplify(contour, epsilon), 2), bounds, size);
+    const epsilon = Math.max(0.35, span / 2400);
+    const points = contourToPoints(simplify(contour, epsilon), bounds, size);
     traced = points.length;
     shape = points.length >= 3
       ? new THREE.Shape(points.map((p) => new THREE.Vector2(p.x, p.y)))
@@ -83,12 +104,11 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   }
 
   // --- body ---
+  // Straight extrusion, no bevel: a bevel offsets the outline OUTWARD, which
+  // painted a fat gold rim over the artwork the flat pin does not have.
   const bodyGeometry = new THREE.ExtrudeGeometry(shape, {
     depth: thickness,
-    bevelEnabled: true,
-    bevelThickness: bevel * 1.4,
-    bevelSize: bevel,
-    bevelSegments: 6,
+    bevelEnabled: false,
     curveSegments: 16,
     steps: 1,
   });
@@ -114,57 +134,41 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   body.receiveShadow = true;
 
   // --- face ---
-  const faceGeometry = new THREE.ShapeGeometry(shape, 16);
-  faceGeometry.translate(offsetX, offsetY, halfDepth + 0.0015);
-
-  // Map the artwork across the shape's own bounding box.
-  const position = faceGeometry.getAttribute("position") as THREE.BufferAttribute;
-  const uv = new Float32Array(position.count * 2);
+  // The face is a plane carrying the artwork, masked by the artwork's own alpha
+  // rather than by a traced polygon. A traced outline is only ever an
+  // approximation: its triangulation bulges outside the true silhouette, which
+  // let the enamel sample the page and the gold body show as a fat rim.
   const cx = (bounds.minX + bounds.maxX) / 2;
   const cy = (bounds.minY + bounds.maxY) / 2;
   const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
   const scale = size / span;
   const spanX = Math.max(1, bounds.maxX - bounds.minX);
   const spanY = Math.max(1, bounds.maxY - bounds.minY);
+
+  const faceWidth = spanX * scale;
+  const faceHeight = spanY * scale;
+  const faceGeometry = new THREE.PlaneGeometry(faceWidth, faceHeight, 1, 1);
+  const project = (x: number, y: number) => ({
+    px: x / scale + cx,
+    py: -y / scale + cy,
+  });
+  const position = faceGeometry.getAttribute("position") as THREE.BufferAttribute;
+  const uv = new Float32Array(position.count * 2);
   for (let i = 0; i < position.count; i++) {
-    const wx = position.getX(i) - offsetX;
-    const wy = position.getY(i) - offsetY;
-    const px = wx / scale + cx;
-    const py = -wy / scale + cy;
+    const { px, py } = project(position.getX(i), position.getY(i));
     uv[i * 2] = (px - bounds.minX) / spanX;
     uv[i * 2 + 1] = (py - bounds.minY) / spanY;
   }
   faceGeometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 
-  /**
- * Alpha mask for the metal overlay: white where the artwork is gold, black
- * elsewhere. Three reads the green channel for `alphaMap`.
- */
-function metalMaskTexture(metalness: Uint8Array, w: number, h: number): THREE.DataTexture {
-  const data = new Uint8Array(w * h * 4);
-  for (let i = 0; i < w * h; i++) {
-    data[i * 4] = metalness[i];
-    data[i * 4 + 1] = metalness[i];
-    data[i * 4 + 2] = metalness[i];
-    data[i * 4 + 3] = 255;
-  }
-  const texture = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
-  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-const map = colorTexture(face, width, imgH);
+  const map = colorTexture(face, width, imgH);
   const metalMask = metalMaskTexture(metalness, width, imgH);
 
-  // Enamel is finished 2D colour, so it is drawn unlit: whatever the environment
-  // does, the artwork never over-exposes to white on a bright frontal highlight.
+  // Enamel is finished 2D colour, so it is drawn unlit and simply discards the
+  // transparent background. Nothing here can over-expose or bleed.
   const enamelMaterial = new THREE.MeshBasicMaterial({ map, alphaTest: 0.5, toneMapped: false });
 
-  // Gold bands are real metal on top of it, with their own reflections.
+  // Gold bands are real metal on top of it, aligned to the same artwork pixels.
   const metalMaterial = new THREE.MeshPhysicalMaterial({
     color: goldColor,
     metalness: 1,
@@ -183,10 +187,10 @@ const map = colorTexture(face, width, imgH);
   });
 
   const enamelMesh = new THREE.Mesh(faceGeometry, enamelMaterial);
-  enamelMesh.position.z = 0.0005; // sits a hair proud of the cap
+  enamelMesh.position.z = halfDepth + 0.0015;
 
   const metalMesh = new THREE.Mesh(faceGeometry, metalMaterial);
-  metalMesh.position.z = 0.0012; // the raised metal bands, just in front
+  metalMesh.position.z = halfDepth + 0.0022;
 
   const group = new THREE.Group();
   group.add(body, enamelMesh, metalMesh);
