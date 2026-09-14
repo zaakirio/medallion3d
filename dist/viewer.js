@@ -28,10 +28,12 @@ export function createViewer(container, analysis, options = {}) {
     camera.lookAt(0, 0, 0);
     const environment = createStudioEnvironment(renderer);
     scene.environment = environment;
-    const keyLight = new THREE.DirectionalLight(0xfff3dd, 1.5);
+    const keyLight = new THREE.DirectionalLight(0xfff3dd, 0.5);
     keyLight.position.set(2.4, 3.2, 4);
     scene.add(keyLight);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.22));
+    // Low ambient: the environment map already carries the spill, and too much
+    // fill washes out the enamel.
+    scene.add(new THREE.AmbientLight(0xffffff, 0.12));
     const tiltGroup = new THREE.Group();
     const spinGroup = new THREE.Group();
     tiltGroup.add(spinGroup);

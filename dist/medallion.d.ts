@@ -16,7 +16,6 @@ export type MedallionOptions = {
     bevel?: number;
     goldColor?: THREE.ColorRepresentation;
     /** Normal-map strength for the embossed artwork. */
-    relief?: number;
     envMap?: THREE.Texture | null;
     /** Trace the pin outline (true) or fall back to a circular coin (false). */
     silhouette?: boolean;

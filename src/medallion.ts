@@ -18,7 +18,6 @@ export type MedallionOptions = {
   bevel?: number;
   goldColor?: THREE.ColorRepresentation;
   /** Normal-map strength for the embossed artwork. */
-  relief?: number;
   envMap?: THREE.Texture | null;
   /** Trace the pin outline (true) or fall back to a circular coin (false). */
   silhouette?: boolean;
@@ -45,51 +44,6 @@ function colorTexture(face: Uint8ClampedArray, w: number, h: number): THREE.Data
   return texture;
 }
 
-/** Pack roughness into G and metalness into B — the channels Three.js reads. */
-function ormTexture(roughness: Uint8Array, metalness: Uint8Array, w: number, h: number): THREE.DataTexture {
-  const data = new Uint8Array(w * h * 4);
-  for (let i = 0; i < w * h; i++) {
-    data[i * 4] = 255; // AO
-    data[i * 4 + 1] = roughness[i];
-    data[i * 4 + 2] = metalness[i];
-    data[i * 4 + 3] = 255;
-  }
-  const texture = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
-  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-/** Sobel the height field into a tangent-space normal map. */
-function normalTexture(height: Uint8Array, w: number, h: number, strength: number): THREE.DataTexture {
-  const data = new Uint8Array(w * h * 4);
-  const sample = (x: number, y: number) =>
-    height[Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))] / 255;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const dx = (sample(x - 1, y) - sample(x + 1, y)) * strength;
-      const dy = (sample(x, y - 1) - sample(x, y + 1)) * strength;
-      const nx = dx, ny = dy, nz = 1;
-      const len = Math.hypot(nx, ny, nz) || 1;
-      const o = (y * w + x) * 4;
-      data[o] = ((nx / len) * 0.5 + 0.5) * 255;
-      data[o + 1] = ((ny / len) * 0.5 + 0.5) * 255;
-      data[o + 2] = ((nz / len) * 0.5 + 0.5) * 255;
-      data[o + 3] = 255;
-    }
-  }
-  const texture = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
-  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  texture.needsUpdate = true;
-  return texture;
-}
-
 /** Circle fallback so a failed trace still produces something solid. */
 function circleShape(size: number): THREE.Shape {
   const r = size / 2;
@@ -104,12 +58,11 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     thickness = 0.16,
     bevel = 0.03,
     goldColor = 0xe9c46a,
-    relief = 2.6,
     envMap = null,
     silhouette = true,
   } = options;
 
-  const { mask, heightMap, metalness, roughness, face, width, height: imgH, bounds } = analysis;
+  const { mask, metalness, face, width, height: imgH, bounds } = analysis;
 
   // --- outline ---
   let shape: THREE.Shape;
@@ -151,7 +104,7 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     metalness: 1,
     roughness: 0.28,
     envMap,
-    envMapIntensity: 1.15,
+    envMapIntensity: 1.2,
     clearcoat: 0.35,
     clearcoatRoughness: 0.35,
   });
@@ -183,49 +136,79 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   }
   faceGeometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 
-  const map = colorTexture(face, width, imgH);
-  const normalMap = normalTexture(heightMap, width, imgH, relief);
-  const orm = ormTexture(roughness, metalness, width, imgH);
+  /**
+ * Alpha mask for the metal overlay: white where the artwork is gold, black
+ * elsewhere. Three reads the green channel for `alphaMap`.
+ */
+function metalMaskTexture(metalness: Uint8Array, w: number, h: number): THREE.DataTexture {
+  const data = new Uint8Array(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    data[i * 4] = metalness[i];
+    data[i * 4 + 1] = metalness[i];
+    data[i * 4 + 2] = metalness[i];
+    data[i * 4 + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.needsUpdate = true;
+  return texture;
+}
 
-  const faceMaterial = new THREE.MeshPhysicalMaterial({
-    map,
-    normalMap,
-    normalScale: new THREE.Vector2(1, 1),
-    roughnessMap: orm,
-    metalnessMap: orm,
+const map = colorTexture(face, width, imgH);
+  const metalMask = metalMaskTexture(metalness, width, imgH);
+
+  // Enamel is finished 2D colour, so it is drawn unlit: whatever the environment
+  // does, the artwork never over-exposes to white on a bright frontal highlight.
+  const enamelMaterial = new THREE.MeshBasicMaterial({ map, alphaTest: 0.5, toneMapped: false });
+
+  // Gold bands are real metal on top of it, with their own reflections.
+  const metalMaterial = new THREE.MeshPhysicalMaterial({
+    color: goldColor,
     metalness: 1,
-    roughness: 1,
+    roughness: 0.26,
     envMap,
-    envMapIntensity: 1.1,
+    envMapIntensity: 0.9,
     clearcoat: 0.15,
-    clearcoatRoughness: 0.5,
-    transparent: false,
+    clearcoatRoughness: 0.3,
+    alphaMap: metalMask,
+    transparent: true,
+    alphaTest: 0.5,
+    depthWrite: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   });
 
-  const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial);
-  faceMesh.position.z = 0.0005; // sits a hair proud of the cap
+  const enamelMesh = new THREE.Mesh(faceGeometry, enamelMaterial);
+  enamelMesh.position.z = 0.0005; // sits a hair proud of the cap
+
+  const metalMesh = new THREE.Mesh(faceGeometry, metalMaterial);
+  metalMesh.position.z = 0.0012; // the raised metal bands, just in front
 
   const group = new THREE.Group();
-  group.add(body, faceMesh);
+  group.add(body, enamelMesh, metalMesh);
 
   return {
     group,
     body,
-    face: faceMesh,
+    face: enamelMesh,
     setEnvironment(env) {
       bodyMaterial.envMap = env;
-      faceMaterial.envMap = env;
+      metalMaterial.envMap = env;
       bodyMaterial.needsUpdate = true;
-      faceMaterial.needsUpdate = true;
+      metalMaterial.needsUpdate = true;
     },
     dispose() {
       bodyGeometry.dispose();
       faceGeometry.dispose();
       bodyMaterial.dispose();
-      faceMaterial.dispose();
+      enamelMaterial.dispose();
+      metalMaterial.dispose();
       map.dispose();
-      normalMap.dispose();
-      orm.dispose();
+      metalMask.dispose();
     },
   };
 }
