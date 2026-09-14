@@ -12,7 +12,9 @@ import * as THREE from "three";
 import { createStudioEnvironment } from "./environment.js";
 import { createMedallion } from "./medallion.js";
 export function createViewer(container, analysis, options = {}) {
-    const { maxTilt = 1.4, radiansPerPixel = 0.011, ...medallionOptions } = options;
+    const { maxTilt = 1.4, radiansPerPixel = 0.011, initialPose, ...medallionOptions } = options;
+    const restYaw = initialPose?.yaw ?? 0.245; // ~14°
+    const restPitch = initialPose?.pitch ?? 0.105; // ~6°
     let width = container.clientWidth || 320;
     let height = container.clientHeight || width;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -49,6 +51,7 @@ export function createViewer(container, analysis, options = {}) {
     // incidence), so the map reads true while the env panels supply the sheen.
     scene.add(new THREE.AmbientLight(0xffffff, 0.68));
     const object = new THREE.Group();
+    object.rotation.set(restPitch, restYaw, 0);
     scene.add(object);
     let medallion = createMedallion(analysis, { ...medallionOptions, envMap: environment });
     object.add(medallion.group);
@@ -113,7 +116,7 @@ export function createViewer(container, analysis, options = {}) {
             object.add(medallion.group);
         },
         reset() {
-            object.rotation.set(0, 0, 0);
+            object.rotation.set(restPitch, restYaw, 0);
         },
         dispose() {
             cancelAnimationFrame(frame);

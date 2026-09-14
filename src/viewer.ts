@@ -18,6 +18,9 @@ export type ViewerOptions = MedallionOptions & {
   maxTilt?: number;
   /** Radians of rotation per pixel dragged. */
   radiansPerPixel?: number;
+  /** Resting pose: a slight turn so the metal catches light before the first
+   * drag (default yaw 14°, pitch 6°). Zero both for a flat head-on rest. */
+  initialPose?: { yaw?: number; pitch?: number };
 };
 
 export type Viewer = {
@@ -37,7 +40,9 @@ export function createViewer(
   analysis: PinAnalysis,
   options: ViewerOptions = {},
 ): Viewer {
-  const { maxTilt = 1.4, radiansPerPixel = 0.011, ...medallionOptions } = options;
+  const { maxTilt = 1.4, radiansPerPixel = 0.011, initialPose, ...medallionOptions } = options;
+  const restYaw = initialPose?.yaw ?? 0.245; // ~14°
+  const restPitch = initialPose?.pitch ?? 0.105; // ~6°
 
   let width = container.clientWidth || 320;
   let height = container.clientHeight || width;
@@ -81,6 +86,7 @@ export function createViewer(
   scene.add(new THREE.AmbientLight(0xffffff, 0.68));
 
   const object = new THREE.Group();
+  object.rotation.set(restPitch, restYaw, 0);
   scene.add(object);
 
   let medallion = createMedallion(analysis, { ...medallionOptions, envMap: environment });
@@ -153,7 +159,7 @@ export function createViewer(
       object.add(medallion.group);
     },
     reset() {
-      object.rotation.set(0, 0, 0);
+      object.rotation.set(restPitch, restYaw, 0);
     },
     dispose() {
       cancelAnimationFrame(frame);

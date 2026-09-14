@@ -34,11 +34,19 @@ const server = createServer(async (req, res) => {
 await new Promise((ok) => server.listen(PORT, "127.0.0.1", ok));
 
 const PINS = [
-  "eiffel-tower",        // tall, narrow tip — the top/bottom extrusion case
-  "accordion",           // wide — the chunky-side case
+  "eiffel-tower",
+  "accordion",
   "saint-basils-cathedral",
   "dallah-coffee",
   "ramadan-lantern",
+  "pelmeni",
+  "matryoshka-doll",
+  "croissant",
+  "fleur-de-lis",
+  "gallic-rooster",
+  "falcon",
+  "oud",
+  "arabesque-tilework",
 ];
 
 // [yaw°, pitch°, label] — yaw = turn left/right, pitch = tip up/down.

@@ -16,6 +16,12 @@ export type ViewerOptions = MedallionOptions & {
     maxTilt?: number;
     /** Radians of rotation per pixel dragged. */
     radiansPerPixel?: number;
+    /** Resting pose: a slight turn so the metal catches light before the first
+     * drag (default yaw 14°, pitch 6°). Zero both for a flat head-on rest. */
+    initialPose?: {
+        yaw?: number;
+        pitch?: number;
+    };
 };
 export type Viewer = {
     renderer: THREE.WebGLRenderer;
