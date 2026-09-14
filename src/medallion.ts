@@ -117,7 +117,7 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   if (silhouette) {
     const contour = traceContour(mask, width, imgH);
     const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
-    const epsilon = Math.max(1.2, span / 320);
+    const epsilon = Math.max(0.35, span / 2400);
     const points = contourToPoints(simplify(contour, epsilon), bounds, size);
     traced = points.length;
     shape = points.length >= 3
@@ -130,10 +130,9 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   // --- body ---
   const bodyGeometry = new THREE.ExtrudeGeometry(shape, {
     depth: thickness,
-    bevelEnabled: true,
-    bevelThickness: bevel * 1.4,
-    bevelSize: bevel,
-    bevelSegments: 3,
+    // No bevel: a bevel offsets the silhouette OUTWARD, so the gold body paints a
+    // ring around the artwork that the flat pin does not have.
+    bevelEnabled: false,
     curveSegments: 8,
     steps: 1,
   });
@@ -142,6 +141,9 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   const offsetX = -(box.min.x + box.max.x) / 2;
   const offsetY = -(box.min.y + box.max.y) / 2;
   bodyGeometry.translate(offsetX, offsetY, -(box.min.z + box.max.z) / 2);
+  // Pull the body inside the artwork: the traced outline is an approximation,
+  // so an exactly-matching body still peeks around the face as a gold rim.
+  bodyGeometry.scale(0.82, 0.82, 1);
   const halfDepth = (box.max.z - box.min.z) / 2;
 
   const bodyMaterial = new THREE.MeshPhysicalMaterial({
@@ -185,23 +187,13 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   const normalMap = normalTexture(heightMap, width, imgH, relief);
   const orm = ormTexture(roughness, metalness, width, imgH);
 
-  const faceMaterial = new THREE.MeshPhysicalMaterial({
-    map,
-    normalMap,
-    normalScale: new THREE.Vector2(1, 1),
-    roughnessMap: orm,
-    metalnessMap: orm,
-    metalness: 1,
-    roughness: 1,
-    envMap,
-    envMapIntensity: 1.1,
-    clearcoat: 0.15,
-    clearcoatRoughness: 0.5,
-    transparent: false,
-  });
+  // The artwork is finished 2D colour. Lighting it washes the enamel out and
+  // clips highlights to white, so the face is drawn unlit and simply discards the
+  // transparent background. The gold body behind supplies the metal.
+  const faceMaterial = new THREE.MeshBasicMaterial({ map, alphaTest: 0.5, toneMapped: false });
 
   const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial);
-  faceMesh.position.z = 0.0005; // sits a hair proud of the cap
+  faceMesh.position.z = 0.0005;
 
   const group = new THREE.Group();
   group.add(body, faceMesh);
