@@ -7,7 +7,7 @@
  */
 import * as THREE from "three";
 import type { PinAnalysis } from "./analyze.js";
-import { contourToPoints, simplify, traceContour } from "./trace.js";
+import { contourToPoints, simplify, smoothClosed, traceContour } from "./trace.js";
 
 export type MedallionOptions = {
   /** Longest edge of the coin, in world units. */
@@ -117,8 +117,10 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   if (silhouette) {
     const contour = traceContour(mask, width, imgH);
     const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
-    const epsilon = Math.max(1.2, span / 320);
-    const points = contourToPoints(simplify(contour, epsilon), bounds, size);
+    // Fine simplification kills the pixel staircase, then Chaikin rounds the
+    // corners so curves read as curves instead of facets.
+    const epsilon = Math.max(0.7, span / 650);
+    const points = contourToPoints(smoothClosed(simplify(contour, epsilon), 2), bounds, size);
     traced = points.length;
     shape = points.length >= 3
       ? new THREE.Shape(points.map((p) => new THREE.Vector2(p.x, p.y)))
@@ -133,8 +135,8 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     bevelEnabled: true,
     bevelThickness: bevel * 1.4,
     bevelSize: bevel,
-    bevelSegments: 3,
-    curveSegments: 8,
+    bevelSegments: 6,
+    curveSegments: 16,
     steps: 1,
   });
   bodyGeometry.computeBoundingBox();
@@ -159,7 +161,7 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   body.receiveShadow = true;
 
   // --- face ---
-  const faceGeometry = new THREE.ShapeGeometry(shape, 8);
+  const faceGeometry = new THREE.ShapeGeometry(shape, 16);
   faceGeometry.translate(offsetX, offsetY, halfDepth + 0.0015);
 
   // Map the artwork across the shape's own bounding box.

@@ -36,7 +36,7 @@ export function createViewer(
   analysis: PinAnalysis,
   options: ViewerOptions = {},
 ): Viewer {
-  const { autoSpin = 0.45, damping = 1.6, flipOnTap = true, ...medallionOptions } = options;
+  const { autoSpin = 0.12, damping = 3, flipOnTap = true, ...medallionOptions } = options;
 
   let width = container.clientWidth || 320;
   let height = container.clientHeight || width;
@@ -101,8 +101,10 @@ export function createViewer(
     if (dragging) {
       const dx = event.clientX - lastX;
       lastX = event.clientX;
-      spinGroup.rotation.y += dx * 0.011;
-      velocity = dx * 0.011 * 24; // rough per-second rate
+      // Gentle: a full-width drag is well under a turn, and the flick is capped
+      // so it never becomes a runaway spin.
+      spinGroup.rotation.y += dx * 0.008;
+      velocity = Math.max(-3.5, Math.min(3.5, dx * 0.008 * 16));
     }
   };
 
