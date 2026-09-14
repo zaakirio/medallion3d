@@ -76,7 +76,7 @@ function circleShape(size: number): THREE.Shape {
 export function createMedallion(analysis: PinAnalysis, options: MedallionOptions = {}): Medallion {
   const {
     size = 2,
-    thickness = 0.13,
+    thickness = 0.045,
     bevel = 0.018,
     goldColor = 0xe9c46a,
     envMap = null,
@@ -117,6 +117,8 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   const offsetX = -(box.min.x + box.max.x) / 2;
   const offsetY = -(box.min.y + box.max.y) / 2;
   bodyGeometry.translate(offsetX, offsetY, -(box.min.z + box.max.z) / 2);
+  // A hair smaller than the face: the edge is only visible from the side.
+  bodyGeometry.scale(0.985, 0.985, 1);
   const halfDepth = (box.max.z - box.min.z) / 2;
 
   const bodyMaterial = new THREE.MeshPhysicalMaterial({
@@ -162,38 +164,16 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   faceGeometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 
   const map = colorTexture(face, width, imgH);
-  const metalMask = metalMaskTexture(metalness, width, imgH);
 
   // Enamel is finished 2D colour, so it is drawn unlit and simply discards the
   // transparent background. Nothing here can over-expose or bleed.
   const enamelMaterial = new THREE.MeshBasicMaterial({ map, alphaTest: 0.5, toneMapped: false });
 
-  // Gold bands are real metal on top of it, aligned to the same artwork pixels.
-  const metalMaterial = new THREE.MeshPhysicalMaterial({
-    color: goldColor,
-    metalness: 1,
-    roughness: 0.26,
-    envMap,
-    envMapIntensity: 0.9,
-    clearcoat: 0.15,
-    clearcoatRoughness: 0.3,
-    alphaMap: metalMask,
-    transparent: true,
-    alphaTest: 0.5,
-    depthWrite: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
-  });
-
   const enamelMesh = new THREE.Mesh(faceGeometry, enamelMaterial);
   enamelMesh.position.z = halfDepth + 0.0015;
 
-  const metalMesh = new THREE.Mesh(faceGeometry, metalMaterial);
-  metalMesh.position.z = halfDepth + 0.0022;
-
   const group = new THREE.Group();
-  group.add(body, enamelMesh, metalMesh);
+  group.add(body, enamelMesh);
 
   return {
     group,
@@ -201,18 +181,14 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     face: enamelMesh,
     setEnvironment(env) {
       bodyMaterial.envMap = env;
-      metalMaterial.envMap = env;
       bodyMaterial.needsUpdate = true;
-      metalMaterial.needsUpdate = true;
     },
     dispose() {
       bodyGeometry.dispose();
       faceGeometry.dispose();
       bodyMaterial.dispose();
       enamelMaterial.dispose();
-      metalMaterial.dispose();
       map.dispose();
-      metalMask.dispose();
     },
   };
 }

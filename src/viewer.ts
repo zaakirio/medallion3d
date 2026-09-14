@@ -1,9 +1,12 @@
 /**
- * Viewer: WebGL renderer + momentum spin + pointer tilt.
+ * Viewer: WebGL renderer plus direct-manipulation rotation.
+ *
+ * The medal behaves like an ordinary 3D object: drag it and it turns to follow
+ * your hand, horizontally and vertically, and stays where you leave it. No
+ * auto-spin, no momentum, no tap-to-flip.
  *
  * Framework-agnostic on purpose. Give it a container and a PinAnalysis; it owns
- * the loop. React / React Native hosts wrap this or consume `createMedallion`
- * directly with their own renderer.
+ * the loop. React / React Native hosts wrap this or consume `createMedallion`.
  */
 import * as THREE from "three";
 import type { PinAnalysis } from "./analyze.js";
@@ -11,12 +14,10 @@ import { createStudioEnvironment } from "./environment.js";
 import { createMedallion, type Medallion, type MedallionOptions } from "./medallion.js";
 
 export type ViewerOptions = MedallionOptions & {
-  /** Idle spin, radians/second. */
-  autoSpin?: number;
-  /** How quickly a flick decays, per second. */
-  damping?: number;
-  /** Flip the coin 180° on tap. */
-  flipOnTap?: boolean;
+  /** How far the object tips up/down, in radians (default 80°). */
+  maxTilt?: number;
+  /** Radians of rotation per pixel dragged. */
+  radiansPerPixel?: number;
 };
 
 export type Viewer = {
@@ -26,8 +27,8 @@ export type Viewer = {
   medallion: Medallion;
   /** Swap the artwork without rebuilding the renderer. */
   setAnalysis(analysis: PinAnalysis): void;
-  /** Nudge it, e.g. from a haptic tap. */
-  spin(radiansPerSecond: number): void;
+  /** Put the object back to face-on. */
+  reset(): void;
   dispose(): void;
 };
 
@@ -36,7 +37,7 @@ export function createViewer(
   analysis: PinAnalysis,
   options: ViewerOptions = {},
 ): Viewer {
-  const { autoSpin = 0.12, damping = 3, flipOnTap = true, ...medallionOptions } = options;
+  const { maxTilt = 1.4, radiansPerPixel = 0.011, ...medallionOptions } = options;
 
   let width = container.clientWidth || 320;
   let height = container.clientHeight || width;
@@ -63,51 +64,38 @@ export function createViewer(
   const keyLight = new THREE.DirectionalLight(0xfff3dd, 0.5);
   keyLight.position.set(2.4, 3.2, 4);
   scene.add(keyLight);
-  // Low ambient: the environment map already carries the spill, and too much
-  // fill washes out the enamel.
   scene.add(new THREE.AmbientLight(0xffffff, 0.12));
 
-  const tiltGroup = new THREE.Group();
-  const spinGroup = new THREE.Group();
-  tiltGroup.add(spinGroup);
-  scene.add(tiltGroup);
+  const object = new THREE.Group();
+  scene.add(object);
 
   let medallion = createMedallion(analysis, { ...medallionOptions, envMap: environment });
-  spinGroup.add(medallion.group);
+  object.add(medallion.group);
 
-  // --- interaction state ---
-  let velocity = 0;
+  // --- direct manipulation ---
   let dragging = false;
   let lastX = 0;
-  let targetTiltX = 0, targetTiltZ = 0;
-  let flipBoost = 0;
-  let scalePulse = 1;
+  let lastY = 0;
 
   const el = renderer.domElement;
 
   const onPointerDown = (event: PointerEvent) => {
     dragging = true;
     lastX = event.clientX;
-    velocity = 0;
+    lastY = event.clientY;
     el.setPointerCapture?.(event.pointerId);
     el.style.cursor = "grabbing";
   };
 
   const onPointerMove = (event: PointerEvent) => {
-    const rect = el.getBoundingClientRect();
-    const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    const ny = ((event.clientY - rect.top) / rect.height) * 2 - 1;
-    targetTiltZ = nx * 0.28;
-    targetTiltX = ny * 0.22;
-
-    if (dragging) {
-      const dx = event.clientX - lastX;
-      lastX = event.clientX;
-      // Gentle: a full-width drag is well under a turn, and the flick is capped
-      // so it never becomes a runaway spin.
-      spinGroup.rotation.y += dx * 0.008;
-      velocity = Math.max(-3.5, Math.min(3.5, dx * 0.008 * 16));
-    }
+    if (!dragging) return;
+    const dx = event.clientX - lastX;
+    const dy = event.clientY - lastY;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    // Horizontal drag turns it left/right; vertical tips it toward/away.
+    object.rotation.y += dx * radiansPerPixel;
+    object.rotation.x = Math.max(-maxTilt, Math.min(maxTilt, object.rotation.x + dy * radiansPerPixel));
   };
 
   const onPointerUp = (event: PointerEvent) => {
@@ -115,22 +103,12 @@ export function createViewer(
     dragging = false;
     el.releasePointerCapture?.(event.pointerId);
     el.style.cursor = "grab";
-    if (flipOnTap && Math.abs(velocity) < 0.25) {
-      flipBoost = Math.PI * 2; // one full lazy turn
-      scalePulse = 1.08;
-    }
-  };
-
-  const onPointerLeave = () => {
-    targetTiltX = 0;
-    targetTiltZ = 0;
   };
 
   el.addEventListener("pointerdown", onPointerDown);
   el.addEventListener("pointermove", onPointerMove);
   el.addEventListener("pointerup", onPointerUp);
   el.addEventListener("pointercancel", onPointerUp);
-  el.addEventListener("pointerleave", onPointerLeave);
 
   const observer = new ResizeObserver(() => {
     width = container.clientWidth || width;
@@ -142,30 +120,8 @@ export function createViewer(
   observer.observe(container);
 
   let frame = 0;
-  const clock = new THREE.Clock();
-
   const tick = () => {
     frame = requestAnimationFrame(tick);
-    const dt = Math.min(clock.getDelta(), 0.05);
-
-    if (!dragging) {
-      // Momentum decays toward the idle spin.
-      velocity += (autoSpin - velocity) * Math.min(1, damping * dt);
-      spinGroup.rotation.y += velocity * dt;
-    }
-
-    if (flipBoost > 0) {
-      const step = Math.min(flipBoost, dt * 4.5);
-      spinGroup.rotation.y += step;
-      flipBoost -= step;
-    }
-
-    tiltGroup.rotation.x += (targetTiltX - tiltGroup.rotation.x) * Math.min(1, 8 * dt);
-    tiltGroup.rotation.z += (targetTiltZ - tiltGroup.rotation.z) * Math.min(1, 8 * dt);
-
-    scalePulse += (1 - scalePulse) * Math.min(1, 7 * dt);
-    spinGroup.scale.setScalar(scalePulse);
-
     renderer.render(scene, camera);
   };
   tick();
@@ -176,13 +132,13 @@ export function createViewer(
     camera,
     get medallion() { return medallion; },
     setAnalysis(next) {
-      spinGroup.remove(medallion.group);
+      object.remove(medallion.group);
       medallion.dispose();
       medallion = createMedallion(next, { ...medallionOptions, envMap: environment });
-      spinGroup.add(medallion.group);
+      object.add(medallion.group);
     },
-    spin(radiansPerSecond) {
-      velocity = radiansPerSecond;
+    reset() {
+      object.rotation.set(0, 0, 0);
     },
     dispose() {
       cancelAnimationFrame(frame);
@@ -191,7 +147,6 @@ export function createViewer(
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerup", onPointerUp);
       el.removeEventListener("pointercancel", onPointerUp);
-      el.removeEventListener("pointerleave", onPointerLeave);
       medallion.dispose();
       environment.dispose();
       renderer.dispose();

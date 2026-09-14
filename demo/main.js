@@ -21,10 +21,10 @@ async function show(pin, button) {
   if (viewer) {
     viewer.setAnalysis(analysis);
   } else {
-    viewer = createViewer(stage, analysis, { background: 0x0b0e13, autoSpin: 0.5 });
+    viewer = createViewer(stage, analysis);
     window.__medallion = viewer;
   }
-  note.textContent = `${pin.name} — ${summarise(analysis)} · drag to spin · tap to flip`;
+  note.textContent = `${pin.name} — ${summarise(analysis)} · drag to rotate`;
   window.__medallionReady = true;
 }
 
