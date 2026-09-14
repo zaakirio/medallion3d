@@ -213,9 +213,9 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     metalness: 1,
     roughness: 1,
     envMap,
-    envMapIntensity: 0.5,
-    clearcoat: 0.3,
-    clearcoatRoughness: 0.4,
+    envMapIntensity: 0.95,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.3,
     alphaTest: 0.5,
   });
 

@@ -25,6 +25,11 @@ export function createStudioEnvironment(renderer, { intensity = 1, background = 
     // specular and washes the artwork pale. Kept compact so it reads as a sheen
     // that sweeps across the face as the medal turns, not a static glare.
     softbox(-1.6, 1.1, 4.2, 3.5, 3.5, 0xffffff, 0.55);
+    // Elongated strip lights in front of the medal: the defined reflections the
+    // gold fields show head-on, like strip softboxes in a coin photo. Narrow so
+    // they streak across the metal and sweep as the medal turns.
+    softbox(-2.4, 0.6, 3.6, 1.1, 6, 0xf6f9ff, 1.7); // cool vertical strip, left
+    softbox(2.7, -0.7, 3.6, 0.9, 4.4, 0xfff3dc, 1.3); // warm strip, lower right
     softbox(-4, 0.5, 1.5, 3.5, 5, 0xdce8ff, 1.8); // cool left
     softbox(4, -1, 1.5, 3.5, 5, 0xffd9a8, 1.5); // warm right
     softbox(0, -4, 1, 7, 3, 0x54607a, 1.0); // soft floor bounce

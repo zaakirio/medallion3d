@@ -231,10 +231,10 @@ export function analyzePin({ data, width, height }: PixelInput): PinAnalysis {
     if (!mask[i]) { metalness[i] = 0; roughness[i] = 200; continue; }
     if (isGold[i] || ring[i]) {
       heightField[i] = 235;
-      // The border is full metal; interior gold detail keeps half metalness so
-      // it reads as painted relief without tinting the artwork to gold.
-      metalness[i] = ring[i] ? 255 : 128;
-      roughness[i] = 55;
+      // Every gold field is full metal: its reflection tints with the artwork
+      // colour and sweeps the studio like the coin body does.
+      metalness[i] = 255;
+      roughness[i] = 45;
     } else { heightField[i] = 72; metalness[i] = 0; roughness[i] = 205; }
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "medallion3d",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Turn flat 2D pin art into a physically-lit 3D gold medallion. Runtime geometry, no 3D assets.",
   "type": "module",
   "license": "MIT",
