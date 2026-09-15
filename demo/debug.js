@@ -8,7 +8,8 @@ const stage = document.getElementById("stage");
 const note = document.getElementById("note");
 
 const analysis = await loadPin(pin);
-const viewer = createViewer(stage, analysis);
+const metal = new URLSearchParams(location.search).get("metal");
+const viewer = createViewer(stage, analysis, metal ? { metal } : {});
 
 // Diagnostic modes: ?plain=1 unlit face; ?layers=face|body isolates a mesh.
 const params = new URLSearchParams(location.search);

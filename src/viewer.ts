@@ -21,6 +21,10 @@ export type ViewerOptions = MedallionOptions & {
   /** Resting pose: a slight turn so the metal catches light before the first
    * drag (default yaw 14°, pitch 6°). Zero both for a flat head-on rest. */
   initialPose?: { yaw?: number; pitch?: number };
+  /** Slow turntable rotation, radians per second (default 0.35 — a lap in
+   * ~18s). Pauses while dragging and resumes from where the drag left it.
+   * 0 disables. */
+  idleSpin?: number;
 };
 
 export type Viewer = {
@@ -40,7 +44,7 @@ export function createViewer(
   analysis: PinAnalysis,
   options: ViewerOptions = {},
 ): Viewer {
-  const { maxTilt = 1.4, radiansPerPixel = 0.011, initialPose, ...medallionOptions } = options;
+  const { maxTilt = 1.4, radiansPerPixel = 0.011, initialPose, idleSpin = 0.35, ...medallionOptions } = options;
   const restYaw = initialPose?.yaw ?? 0.245; // ~14°
   const restPitch = initialPose?.pitch ?? 0.105; // ~6°
 
@@ -141,11 +145,15 @@ export function createViewer(
   observer.observe(container);
 
   let frame = 0;
-  const tick = () => {
+  let lastTime = performance.now();
+  const tick = (now: number) => {
     frame = requestAnimationFrame(tick);
+    const dt = Math.min(0.25, (now - lastTime) / 1000);
+    lastTime = now;
+    if (!dragging && idleSpin > 0) object.rotation.y += idleSpin * dt;
     renderer.render(scene, camera);
   };
-  tick();
+  frame = requestAnimationFrame(tick);
 
   return {
     renderer,

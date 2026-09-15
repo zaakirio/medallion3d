@@ -7,6 +7,7 @@
  */
 import * as THREE from "three";
 import type { PinAnalysis } from "./analyze.js";
+export type MedalMetal = "gold" | "silver" | "bronze";
 export type MedallionOptions = {
     /** Longest edge of the coin, in world units. */
     size?: number;
@@ -14,7 +15,8 @@ export type MedallionOptions = {
     thickness?: number;
     /** Bevel width; drives how much the rim catches the light. */
     bevel?: number;
-    goldColor?: THREE.ColorRepresentation;
+    /** The struck metal: recolours the body and the artwork's gold paint. */
+    metal?: MedalMetal;
     /** Normal-map strength for the embossed artwork. */
     relief?: number;
     envMap?: THREE.Texture | null;

@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { createStudioEnvironment } from "./environment.js";
 import { createMedallion } from "./medallion.js";
 export function createViewer(container, analysis, options = {}) {
-    const { maxTilt = 1.4, radiansPerPixel = 0.011, initialPose, ...medallionOptions } = options;
+    const { maxTilt = 1.4, radiansPerPixel = 0.011, initialPose, idleSpin = 0.35, ...medallionOptions } = options;
     const restYaw = initialPose?.yaw ?? 0.245; // ~14°
     const restPitch = initialPose?.pitch ?? 0.105; // ~6°
     let width = container.clientWidth || 320;
@@ -99,11 +99,16 @@ export function createViewer(container, analysis, options = {}) {
     });
     observer.observe(container);
     let frame = 0;
-    const tick = () => {
+    let lastTime = performance.now();
+    const tick = (now) => {
         frame = requestAnimationFrame(tick);
+        const dt = Math.min(0.25, (now - lastTime) / 1000);
+        lastTime = now;
+        if (!dragging && idleSpin > 0)
+            object.rotation.y += idleSpin * dt;
         renderer.render(scene, camera);
     };
-    tick();
+    frame = requestAnimationFrame(tick);
     return {
         renderer,
         scene,

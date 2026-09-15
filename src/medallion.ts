@@ -9,6 +9,8 @@ import * as THREE from "three";
 import type { PinAnalysis } from "./analyze.js";
 import { contourToPoints, simplify, traceContour } from "./trace.js";
 
+export type MedalMetal = "gold" | "silver" | "bronze";
+
 export type MedallionOptions = {
   /** Longest edge of the coin, in world units. */
   size?: number;
@@ -16,7 +18,8 @@ export type MedallionOptions = {
   thickness?: number;
   /** Bevel width; drives how much the rim catches the light. */
   bevel?: number;
-  goldColor?: THREE.ColorRepresentation;
+  /** The struck metal: recolours the body and the artwork's gold paint. */
+  metal?: MedalMetal;
   /** Normal-map strength for the embossed artwork. */
   relief?: number;
   envMap?: THREE.Texture | null;
@@ -103,11 +106,20 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
     size = 2,
     thickness = 0.12,
     bevel = 0.02,
-    goldColor = 0xe9c46a,
+    metal = "gold",
     relief = 2.0,
     envMap = null,
     silhouette = true,
   } = options;
+
+  // Per-metal body colour and face tint. Tints multiply the pixel's own
+  // luminance so the artwork's shading survives the recolour.
+  const METALS: Record<MedalMetal, { body: number; tint: [number, number, number] }> = {
+    gold: { body: 0xe9c46a, tint: [1.0, 0.92, 0.62] },
+    silver: { body: 0xc9ccd1, tint: [0.88, 0.91, 0.96] },
+    bronze: { body: 0xb0793f, tint: [0.78, 0.54, 0.32] },
+  };
+  const metalSpec = METALS[metal];
 
   const { mask, heightMap, metalness, roughness, face, width, height: imgH, bounds } = analysis;
 
@@ -159,7 +171,7 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   const halfDepth = (box.max.z - box.min.z) / 2;
 
   const bodyMaterial = new THREE.MeshPhysicalMaterial({
-    color: goldColor,
+    color: metalSpec.body,
     metalness: 1,
     roughness: 0.28,
     envMap,
@@ -197,7 +209,23 @@ export function createMedallion(analysis: PinAnalysis, options: MedallionOptions
   }
   faceGeometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 
-  const map = colorTexture(face, width, imgH);
+  const faceRGBA = new Uint8ClampedArray(face);
+  if (metal !== "gold") {
+    // Recolour the struck metal — the border ring and the artwork's painted
+    // gold — towards this tier's metal, keeping each pixel's own shading.
+    const [tr, tg, tb] = metalSpec.tint;
+    for (let i = 0; i < width * imgH; i++) {
+      if (!analysis.goldMask[i] && !analysis.ring[i]) continue;
+      const o = i * 4;
+      const lum = (faceRGBA[o] * 0.3 + faceRGBA[o + 1] * 0.59 + faceRGBA[o + 2] * 0.11) / 255;
+      const shade = 0.22 + lum * 0.95;
+      faceRGBA[o] = Math.min(255, tr * 255 * shade);
+      faceRGBA[o + 1] = Math.min(255, tg * 255 * shade);
+      faceRGBA[o + 2] = Math.min(255, tb * 255 * shade);
+    }
+  }
+
+  const map = colorTexture(faceRGBA, width, imgH);
   const normalMap = normalTexture(heightMap, width, imgH, relief);
   const orm = ormTexture(roughness, metalness, width, imgH);
 

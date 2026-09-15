@@ -22,6 +22,10 @@ export type ViewerOptions = MedallionOptions & {
         yaw?: number;
         pitch?: number;
     };
+    /** Slow turntable rotation, radians per second (default 0.35 — a lap in
+     * ~18s). Pauses while dragging and resumes from where the drag left it.
+     * 0 disables. */
+    idleSpin?: number;
 };
 export type Viewer = {
     renderer: THREE.WebGLRenderer;

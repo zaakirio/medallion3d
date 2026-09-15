@@ -26,6 +26,10 @@ export type PinAnalysis = {
     face: Uint8ClampedArray;
     /** Fraction of the silhouette classified as gold. */
     goldRatio: number;
+    /** Pixels classified as gold-painted (the metal recolour mask). */
+    goldMask: Uint8Array;
+    /** The silhouette's outermost border band (the struck-metal rim). */
+    ring: Uint8Array;
     bounds: {
         minX: number;
         minY: number;

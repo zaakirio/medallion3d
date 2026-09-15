@@ -309,6 +309,8 @@ export function analyzePin({ data, width, height }) {
         roughness,
         face: bleeded,
         goldRatio: fgCount ? goldCount / fgCount : 0,
+        goldMask: isGold,
+        ring,
         bounds: { minX, minY, maxX, maxY },
     };
 }
