@@ -84,10 +84,11 @@ export function createMedallion(analysis, options = {}) {
     if (silhouette) {
         const contour = traceContour(mask, width, imgH);
         const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) || 1;
-        // ~1px: tight enough that the polygon hides under the artwork's own gold
-        // border, loose enough to collapse the pixel staircase — an exactly-traced
-        // outline corrugates the extrusion wall into visible micro-facets.
-        const epsilon = Math.max(1.0, span / 300);
+        // ~2px: tight enough that the polygon still hides under the artwork's own
+        // gold border, loose enough to dissolve both the pixel staircase and the
+        // small boundary wobble the mask picks up from anti-aliased edge pixels —
+        // either of which otherwise shows as notches along the extrusion wall.
+        const epsilon = Math.max(2.0, span / 170);
         const points = contourToPoints(simplify(contour, epsilon), bounds, size);
         traced = points.length;
         shape = points.length >= 3
